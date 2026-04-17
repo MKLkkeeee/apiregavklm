@@ -228,7 +228,7 @@ app.delete('/dashboard/apikey/:key', authenticateUI, async (req, res) => {
 // Middleware ตรวจสอบ API Key สำหรับ Service
 async function authenticateAPIKey(req, res, next) {
     const apiKey = req.headers['x-api-key'] || req.query.apikey;
-    if (!apiKey) return res.status(401).json({ error: 'API Key required (Header: x-api-key)' });
+    if (!apiKey) return res.status(401).json({ error: 'API Key required' });
 
     const db = await readDB();
     const keyData = db.apikeys[apiKey];
