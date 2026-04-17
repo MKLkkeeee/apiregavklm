@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus Drive - Cloud Storage</title>
+    <title>Nexus Config | Developer Database</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
@@ -12,300 +12,148 @@
             theme: {
                 extend: {
                     colors: {
-                        gray: {
-                            850: '#1f2937',
-                            900: '#111827',
-                            950: '#030712'
-                        },
-                        brand: {
-                            500: '#3b82f6', // blue-500
-                            600: '#2563eb', // blue-600
-                        }
-                    },
-                    transitionProperty: {
-                        'height': 'height',
-                        'spacing': 'margin, padding',
+                        gray: { 850: '#1f2937', 900: '#111827', 950: '#030712' },
+                        primary: { 500: '#10b981', 600: '#059669' } // Emerald green for dev feel
                     }
                 }
             }
         }
     </script>
     <style>
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
-        
-        /* Drag Selection Box */
-        #selection-box {
-            position: absolute;
-            background-color: rgba(59, 130, 246, 0.2);
-            border: 1px solid rgba(59, 130, 246, 0.8);
-            border-radius: 2px;
-            pointer-events: none;
-            z-index: 50;
-            display: none;
-        }
-
-        .file-item.selected {
-            background-color: rgba(59, 130, 246, 0.2) !important;
-            border-color: rgba(59, 130, 246, 0.5) !important;
-        }
-
-        /* Animations */
         .fade-in { animation: fadeIn 0.2s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-        .loader {
-            border: 3px solid #374151; border-top: 3px solid #3b82f6;
-            border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite;
-        }
+        .loader { border: 3px solid #374151; border-top: 3px solid #10b981; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* สไตล์สำหรับ JSON Editor */
+        .json-textarea {
+            tab-size: 2;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100 min-h-screen overflow-hidden font-sans selection:bg-brand-500 selection:text-white flex">
+<body class="bg-gray-950 text-gray-100 min-h-screen overflow-hidden font-sans selection:bg-primary-500 selection:text-white flex">
 
-    <!-- Toast Notification System -->
+    <!-- Toast Notification -->
     <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
 
-    <!-- Login/Register Overlay -->
+    <!-- Auth Overlay -->
     <div id="auth-overlay" class="fixed inset-0 z-50 bg-gray-950 flex items-center justify-center fade-in">
-        <div class="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden">
-            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-500 to-purple-500"></div>
-            <div class="flex justify-center mb-6">
-                <div class="bg-brand-500/10 p-3 rounded-xl"><i data-lucide="cloud" class="w-10 h-10 text-brand-500"></i></div>
+        <div class="bg-gray-900 border border-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md">
+            <div class="flex items-center justify-center mb-6 gap-3 text-primary-500">
+                <i data-lucide="database" class="w-8 h-8"></i>
+                <h2 class="text-2xl font-bold text-white">Nexus<span class="text-primary-500">Config</span></h2>
             </div>
-            <h2 class="text-2xl font-bold text-center mb-2">Nexus Drive</h2>
-            <p class="text-gray-400 text-center mb-8 text-sm" id="auth-subtitle">Sign in to access your storage</p>
+            <p class="text-gray-400 text-center mb-6 text-sm" id="auth-subtitle">Developer API Storage Login</p>
 
             <form id="auth-form" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-400 mb-1">Username</label>
-                    <input type="text" id="auth-username" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-400 mb-1">Password</label>
-                    <input type="password" id="auth-password" required class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-colors">
-                </div>
-                <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white font-medium py-2.5 rounded-lg transition-colors flex justify-center items-center gap-2">
+                <input type="text" id="auth-username" placeholder="Username" required class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:border-primary-500 transition-colors">
+                <input type="password" id="auth-password" placeholder="Password" required class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:border-primary-500 transition-colors">
+                <button type="submit" class="w-full bg-primary-600 hover:bg-primary-500 text-white font-medium py-3 rounded-lg transition-colors mt-2">
                     <span id="auth-btn-text">Sign In</span>
                 </button>
             </form>
             <div class="mt-6 text-center text-sm text-gray-400">
-                <span id="auth-switch-text">Don't have an account?</span> 
-                <button id="auth-switch-btn" class="text-brand-500 hover:text-brand-400 font-medium">Create one</button>
+                <span id="auth-switch-text">New developer?</span> 
+                <button id="auth-switch-btn" class="text-primary-500 hover:text-primary-400 font-medium">Register here</button>
             </div>
         </div>
     </div>
 
-    <!-- MAIN APP LAYOUT -->
-    
     <!-- Sidebar -->
-    <aside class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col hidden sm:flex shrink-0">
+    <aside class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0">
         <div class="h-16 flex items-center px-6 border-b border-gray-800 gap-3">
-            <i data-lucide="cloud" class="w-6 h-6 text-brand-500"></i>
-            <span class="font-bold text-lg tracking-wide">Nexus Drive</span>
+            <i data-lucide="database" class="w-6 h-6 text-primary-500"></i>
+            <span class="font-bold text-lg tracking-wide">Nexus Config</span>
         </div>
         
-        <div class="p-4 flex-1 flex flex-col gap-1">
-            <button onclick="switchView('files')" id="nav-files" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-gray-800 text-brand-400 transition-colors">
-                <i data-lucide="folder" class="w-4 h-4"></i> My Files
+        <div class="p-4 flex-1 flex flex-col gap-2">
+            <button onclick="switchView('databases')" id="nav-databases" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-primary-500/10 text-primary-500 transition-colors">
+                <i data-lucide="server" class="w-4 h-4"></i> Data Collections
             </button>
-            <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors">
-                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
-            </button>
-            <button onclick="switchView('docs')" id="nav-docs" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors">
-                <i data-lucide="book" class="w-4 h-4"></i> API Docs
+            <button onclick="switchView('api-docs')" id="nav-api-docs" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 transition-colors">
+                <i data-lucide="terminal" class="w-4 h-4"></i> API Documentation
             </button>
         </div>
 
         <div class="p-4 border-t border-gray-800">
-            <div class="flex items-center gap-3 mb-4 px-2">
-                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-500 to-purple-500 flex items-center justify-center text-sm font-bold shadow-lg" id="user-avatar">U</div>
-                <div class="flex-1 overflow-hidden">
-                    <p class="text-sm font-medium truncate" id="user-name-display">User</p>
-                    <p class="text-xs text-gray-500">Free Tier</p>
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="user" class="w-4 h-4 text-gray-500"></i>
+                    <span class="text-sm font-medium text-gray-300" id="user-display">Dev</span>
                 </div>
+                <button onclick="logout()" class="text-gray-500 hover:text-red-400 transition-colors"><i data-lucide="log-out" class="w-4 h-4"></i></button>
             </div>
-            <button onclick="logout()" class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors">
-                <i data-lucide="log-out" class="w-4 h-4"></i> Logout
-            </button>
         </div>
     </aside>
 
-    <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col min-w-0 bg-gray-950 relative">
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-[#0a0a0a]">
         
-        <!-- Topbar -->
-        <header class="h-16 flex items-center justify-between px-6 border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm z-10 shrink-0">
-            <!-- Breadcrumbs -->
-            <div class="flex items-center gap-2 text-sm text-gray-400 overflow-x-auto whitespace-nowrap" id="breadcrumbs">
-                <!-- Populated by JS -->
-            </div>
-
-            <!-- Actions -->
-            <div class="flex items-center gap-3" id="topbar-actions">
-                <button onclick="triggerUpload()" class="p-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg transition-colors border border-gray-700 shadow-sm" title="Upload File">
-                    <i data-lucide="upload" class="w-4 h-4"></i>
-                </button>
-                <button onclick="createNewFolder()" class="p-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg transition-colors border border-gray-700 shadow-sm" title="New Folder">
-                    <i data-lucide="folder-plus" class="w-4 h-4"></i>
-                </button>
-                <button onclick="deleteSelected()" id="btn-delete" class="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors border border-red-500/20 shadow-sm hidden" title="Delete Selected">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                </button>
-                <input type="file" id="file-upload-input" multiple class="hidden" onchange="handleFileUpload(event)">
-            </div>
+        <!-- Header -->
+        <header class="h-16 flex items-center justify-between px-8 border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm shrink-0">
+            <h1 class="text-lg font-medium text-gray-200" id="page-title">Data Collections</h1>
+            <button id="btn-new-db" onclick="createNewDB()" class="bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+                <i data-lucide="plus" class="w-4 h-4"></i> New JSON DB
+            </button>
         </header>
 
         <!-- Views Container -->
-        <div class="flex-1 overflow-y-auto relative p-6" id="view-container">
+        <div class="flex-1 overflow-y-auto p-8 relative">
             
-            <!-- FILES VIEW -->
-            <div id="view-files" class="w-full h-full relative fade-in">
-                <!-- Dropzone Overlay -->
-                <div id="dropzone" class="absolute inset-0 bg-brand-500/10 border-2 border-brand-500 border-dashed rounded-xl z-40 hidden flex items-center justify-center backdrop-blur-sm">
-                    <div class="text-center">
-                        <i data-lucide="upload-cloud" class="w-16 h-16 text-brand-500 mx-auto mb-4 animate-bounce"></i>
-                        <h3 class="text-2xl font-bold text-brand-500">Drop files to upload to <span id="dropzone-path">/</span></h3>
-                    </div>
-                </div>
-
-                <!-- Drag Selection Box Element -->
-                <div id="selection-box"></div>
-
-                <!-- Grid -->
-                <div id="file-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 items-start select-none pb-20">
-                    <!-- Loading state -->
+            <!-- DATABASES VIEW -->
+            <div id="view-databases" class="w-full max-w-6xl mx-auto fade-in">
+                <div id="db-list" class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <!-- Cards will be injected here -->
                     <div class="col-span-full flex justify-center py-12"><div class="loader"></div></div>
                 </div>
             </div>
 
-            <!-- DASHBOARD VIEW -->
-            <div id="view-dashboard" class="w-full hidden fade-in max-w-5xl mx-auto space-y-6">
-                <h1 class="text-2xl font-bold mb-6">Storage Overview</h1>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="p-2 bg-brand-500/10 rounded-lg"><i data-lucide="hard-drive" class="w-5 h-5 text-brand-500"></i></div>
-                        </div>
-                        <h3 class="text-gray-400 text-sm font-medium mb-1">Total Storage Used</h3>
-                        <p class="text-3xl font-bold" id="stat-size">0 B</p>
-                    </div>
-
-                    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="p-2 bg-emerald-500/10 rounded-lg"><i data-lucide="files" class="w-5 h-5 text-emerald-500"></i></div>
-                        </div>
-                        <h3 class="text-gray-400 text-sm font-medium mb-1">Total Files</h3>
-                        <p class="text-3xl font-bold" id="stat-files">0</p>
-                    </div>
-
-                    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-sm">
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="p-2 bg-purple-500/10 rounded-lg"><i data-lucide="globe" class="w-5 h-5 text-purple-500"></i></div>
-                        </div>
-                        <h3 class="text-gray-400 text-sm font-medium mb-1">Public Shared Files</h3>
-                        <p class="text-3xl font-bold" id="stat-public">0</p>
-                    </div>
-                </div>
-
-                <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mt-6 shadow-sm">
-                    <h3 class="text-lg font-bold mb-4">Storage Usage Allocation</h3>
-                    <div class="w-full bg-gray-800 rounded-full h-4 overflow-hidden flex">
-                        <div class="bg-brand-500 h-full" style="width: 45%" title="Images (45%)"></div>
-                        <div class="bg-purple-500 h-full" style="width: 25%" title="Videos (25%)"></div>
-                        <div class="bg-emerald-500 h-full" style="width: 15%" title="Documents (15%)"></div>
-                        <div class="bg-gray-600 h-full" style="width: 15%" title="Other (15%)"></div>
-                    </div>
-                    <div class="flex gap-4 mt-4 text-xs text-gray-400">
-                        <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-brand-500"></span> Images</div>
-                        <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-purple-500"></span> Videos</div>
-                        <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> Documents</div>
-                        <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-gray-600"></span> Other</div>
-                    </div>
-                </div>
-            </div>
-
             <!-- API DOCS VIEW -->
-            <div id="view-docs" class="w-full hidden fade-in max-w-4xl mx-auto space-y-8 pb-12">
-                <div>
-                    <h1 class="text-3xl font-bold mb-2">API Documentation</h1>
-                    <p class="text-gray-400">Integrate Nexus Drive into your applications.</p>
-                </div>
+            <div id="view-api-docs" class="w-full max-w-4xl mx-auto hidden fade-in text-gray-300">
+                <h2 class="text-2xl font-bold text-white mb-2">REST API Reference</h2>
+                <p class="mb-8 text-gray-400">Use these endpoints to read and write data from your applications (Discord Bots, Game Servers, etc.)</p>
 
-                <div class="space-y-6">
-                    <!-- Endpoint Item -->
+                <div class="space-y-8">
+                    <!-- Section: Read -->
                     <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                        <div class="bg-gray-800/50 px-6 py-4 flex items-center gap-4 border-b border-gray-800">
+                        <div class="bg-gray-850 px-6 py-3 border-b border-gray-800 flex items-center gap-3">
                             <span class="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-xs font-bold font-mono">GET</span>
-                            <code class="text-gray-200 font-mono text-sm">/api/list?path={path}</code>
+                            <code class="text-white">/api/data</code>
                         </div>
                         <div class="p-6">
-                            <p class="text-gray-400 text-sm mb-4">List files and directories in a specific path.</p>
-                            <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Headers required</h4>
-                            <code class="block bg-gray-950 p-3 rounded-lg text-sm text-gray-300 font-mono mb-4 border border-gray-800">Authorization: Bearer &lt;token&gt;</code>
+                            <p class="mb-4 text-sm">อ่านข้อมูล JSON ทั้งหมดจาก Database ของคุณ</p>
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Headers</h4>
+                            <pre class="bg-black border border-gray-800 p-4 rounded-lg text-sm text-green-400 mb-4">x-api-key: "nx_your_api_key_here"</pre>
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Example Output (Bot Node.js)</h4>
+                            <pre class="bg-black border border-gray-800 p-4 rounded-lg text-sm text-gray-300">
+const res = await fetch('http://localhost:3000/api/data', {
+    headers: { 'x-api-key': 'nx_a1b2c3d4...' }
+});
+const config = await res.json();
+console.log(config.prefix); // '!'</pre>
                         </div>
                     </div>
 
-                    <!-- Endpoint Item -->
+                    <!-- Section: Update Partial -->
                     <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                        <div class="bg-gray-800/50 px-6 py-4 flex items-center gap-4 border-b border-gray-800">
-                            <span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs font-bold font-mono">POST</span>
-                            <code class="text-gray-200 font-mono text-sm">/api/file</code>
+                        <div class="bg-gray-850 px-6 py-3 border-b border-gray-800 flex items-center gap-3">
+                            <span class="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded text-xs font-bold font-mono">PATCH</span>
+                            <code class="text-white">/api/data</code>
                         </div>
                         <div class="p-6">
-                            <p class="text-gray-400 text-sm mb-4">Upload multiple files. Requires multipart/form-data.</p>
-                            <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Body (FormData)</h4>
-                            <code class="block bg-gray-950 p-3 rounded-lg text-sm text-gray-300 font-mono mb-4 border border-gray-800">path: "/images"<br>files: [File Object]</code>
+                            <p class="mb-4 text-sm">อัปเดตหรือแก้ไขค่าเฉพาะบางส่วน (ไม่ต้องส่งไปทั้งก้อน)</p>
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Body (JSON)</h4>
+                            <pre class="bg-black border border-gray-800 p-4 rounded-lg text-sm text-yellow-300 mb-4">{
+  "status": "online",
+  "usersCount": 150
+}</pre>
+                            <p class="text-xs text-gray-500 italic">* ระบบจะเอาค่าใหม่ไปทับค่าเก่า และเก็บค่าอื่นๆ ที่ไม่ได้ส่งมาไว้เหมือนเดิม</p>
                         </div>
-                    </div>
-                </div>
-
-                <div class="mt-12">
-                    <h2 class="text-2xl font-bold mb-4">JavaScript SDK Reference</h2>
-                    <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-sm">
-                        <div class="bg-gray-800 px-4 py-2 border-b border-gray-700 flex items-center justify-between">
-                            <span class="text-xs font-mono text-gray-400">storage-sdk.js</span>
-                            <button onclick="copySDK()" class="text-gray-400 hover:text-white transition-colors" title="Copy"><i data-lucide="copy" class="w-4 h-4"></i></button>
-                        </div>
-                        <pre class="p-6 overflow-x-auto text-sm font-mono text-gray-300 leading-relaxed">
-class StorageSDK {
-    constructor(token) {
-        this.token = token;
-        this.baseURL = window.location.origin;
-    }
-
-    async _fetch(endpoint, options = {}) {
-        const headers = { 'Authorization': `Bearer ${this.token}` };
-        if (!(options.body instanceof FormData)) {
-            headers['Content-Type'] = 'application/json';
-            if (options.body) options.body = JSON.stringify(options.body);
-        }
-        const res = await fetch(`${this.baseURL}${endpoint}`, { ...options, headers });
-        if (!res.ok) throw new Error((await res.json()).error);
-        return res.json();
-    }
-
-    list(path = '/') { return this._fetch(`/api/list?path=${encodeURIComponent(path)}`); }
-    createFolder(path) { return this._fetch('/api/folder', { method: 'POST', body: { path } }); }
-    delete(paths) { return this._fetch('/api/delete', { method: 'POST', body: { paths } }); }
-    move(items, dest) { return this._fetch('/api/move', { method: 'POST', body: { items, destination: dest } }); }
-    
-    upload(files, path = '/') {
-        const formData = new FormData();
-        formData.append('path', path);
-        Array.from(files).forEach(f => formData.append('files', f));
-        return this._fetch('/api/file', { method: 'POST', body: formData });
-    }
-}
-
-// Usage:
-// const drive = new StorageSDK('your_jwt_token');
-// const files = await drive.list('/images');
-                        </pre>
                     </div>
                 </div>
             </div>
@@ -313,865 +161,398 @@ class StorageSDK {
         </div>
     </main>
 
-    <!-- Context Menu -->
-    <div id="context-menu" class="hidden absolute z-50 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl py-1 min-w-[200px] text-sm font-medium text-gray-200">
-        <!-- Dynamic content injected by JS -->
-    </div>
-
-    <!-- Preview Modal -->
-    <div id="preview-modal" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col fade-in backdrop-blur-sm">
-        <div class="h-16 flex items-center justify-between px-6 shrink-0 bg-gradient-to-b from-black/60 to-transparent">
-            <h3 class="text-white font-medium flex items-center gap-3" id="preview-title">
-                <i data-lucide="file" class="w-4 h-4"></i> filename.ext
-            </h3>
-            <div class="flex items-center gap-4">
-                <button id="preview-share-btn" class="text-gray-300 hover:text-white transition-colors bg-gray-800 px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm hidden">
-                    <i data-lucide="link" class="w-4 h-4"></i> Share Publicly
-                </button>
-                <button onclick="closePreview()" class="text-gray-300 hover:text-white transition-colors p-2 bg-gray-800 rounded-full hover:bg-gray-700">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-        </div>
-        <div class="flex-1 flex items-center justify-center p-8 overflow-hidden relative" id="preview-content">
-            <!-- Injected content -->
-        </div>
-    </div>
-
-    <!-- Text Editor Modal -->
-    <div id="editor-modal" class="fixed inset-0 z-50 bg-gray-950/80 hidden flex items-center justify-center fade-in backdrop-blur-sm p-4">
-        <div class="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden">
-            <div class="h-14 border-b border-gray-800 flex items-center justify-between px-4 bg-gray-850 shrink-0">
-                <h3 class="font-medium flex items-center gap-2"><i data-lucide="file-edit" class="w-4 h-4 text-brand-400"></i> <span id="editor-title">Editing...</span></h3>
-                <div class="flex gap-2">
-                    <button onclick="closeEditor()" class="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
-                    <button onclick="saveEditor()" class="px-4 py-1.5 text-sm bg-brand-600 hover:bg-brand-500 text-white rounded-lg transition-colors flex items-center gap-2">
-                        <i data-lucide="save" class="w-4 h-4"></i> Save
+    <!-- JSON Editor Modal -->
+    <div id="editor-modal" class="fixed inset-0 z-50 bg-black/80 hidden flex items-center justify-center fade-in backdrop-blur-sm p-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden">
+            <div class="h-14 border-b border-gray-800 flex items-center justify-between px-6 bg-gray-850 shrink-0">
+                <h3 class="font-bold flex items-center gap-2 text-white"><i data-lucide="file-json" class="w-5 h-5 text-primary-500"></i> <span id="editor-title">config.json</span></h3>
+                <div class="flex gap-3">
+                    <button onclick="closeEditor()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors font-medium">Close</button>
+                    <button onclick="saveEditor()" id="btn-save-editor" class="px-5 py-2 text-sm bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors flex items-center gap-2 font-medium">
+                        <i data-lucide="save" class="w-4 h-4"></i> Save Changes
                     </button>
                 </div>
             </div>
-            <textarea id="editor-textarea" class="flex-1 w-full bg-[#0d1117] text-gray-300 p-4 font-mono text-sm focus:outline-none resize-none" spellcheck="false"></textarea>
+            <!-- Action Bar in Editor -->
+            <div class="bg-gray-950 px-6 py-2 border-b border-gray-800 flex items-center gap-4 text-sm">
+                <button onclick="formatJSON()" class="text-gray-400 hover:text-primary-400 flex items-center gap-1 transition-colors"><i data-lucide="align-left" class="w-4 h-4"></i> Format JSON</button>
+                <span id="editor-status" class="text-gray-500 ml-auto text-xs"></span>
+            </div>
+            
+            <textarea id="editor-textarea" class="flex-1 w-full bg-[#0d1117] text-green-400 p-6 json-textarea focus:outline-none resize-none leading-relaxed" spellcheck="false"></textarea>
         </div>
     </div>
 
-    <!-- Application Logic -->
+    <!-- API Key Manager Modal -->
+    <div id="key-modal" class="fixed inset-0 z-50 bg-black/80 hidden flex items-center justify-center fade-in backdrop-blur-sm p-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h3 class="font-bold text-xl mb-2 text-white flex items-center gap-2"><i data-lucide="key" class="w-5 h-5 text-yellow-500"></i> Generate API Key</h3>
+            <p class="text-sm text-gray-400 mb-6" id="key-modal-desc">Create a new access key for <b>config.json</b></p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">Key Name (e.g. Discord Bot)</label>
+                    <input type="text" id="key-name" class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">Permissions</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-white">
+                            <input type="checkbox" id="key-perm-read" checked disabled class="accent-primary-500 w-4 h-4"> Read
+                        </label>
+                        <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-white">
+                            <input type="checkbox" id="key-perm-write" checked class="accent-primary-500 w-4 h-4"> Write / Update
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-3">
+                <button onclick="closeKeyModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors font-medium">Cancel</button>
+                <button onclick="generateKey()" class="px-5 py-2 text-sm bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition-colors font-medium">Generate Key</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Logic -->
     <script>
         // State
         let state = {
-            token: localStorage.getItem('nexus_token'),
-            user: JSON.parse(localStorage.getItem('nexus_user') || 'null'),
-            currentPath: '/',
+            token: localStorage.getItem('nexus_cfg_token'),
+            user: JSON.parse(localStorage.getItem('nexus_cfg_user') || 'null'),
             files: [],
-            selectedPaths: new Set(),
-            view: 'files', // files, dashboard, docs
-            isDraggingBox: false,
-            dragStartX: 0,
-            dragStartY: 0
+            currentEditingFile: null,
+            targetFileForKey: null
         };
 
-        // DOM Elements
         const DOM = {
             authOverlay: document.getElementById('auth-overlay'),
             authForm: document.getElementById('auth-form'),
-            authSubtitle: document.getElementById('auth-subtitle'),
-            authBtnText: document.getElementById('auth-btn-text'),
-            authSwitchText: document.getElementById('auth-switch-text'),
-            authSwitchBtn: document.getElementById('auth-switch-btn'),
-            authUsername: document.getElementById('auth-username'),
-            authPassword: document.getElementById('auth-password'),
-            
-            userNameDisplay: document.getElementById('user-name-display'),
-            userAvatar: document.getElementById('user-avatar'),
-            
-            viewContainer: document.getElementById('view-container'),
-            viewFiles: document.getElementById('view-files'),
-            viewDashboard: document.getElementById('view-dashboard'),
-            viewDocs: document.getElementById('view-docs'),
-            
-            fileGrid: document.getElementById('file-grid'),
-            breadcrumbs: document.getElementById('breadcrumbs'),
-            topbarActions: document.getElementById('topbar-actions'),
-            btnDelete: document.getElementById('btn-delete'),
-            fileUploadInput: document.getElementById('file-upload-input'),
-            
-            contextMenu: document.getElementById('context-menu'),
-            selectionBox: document.getElementById('selection-box'),
-            dropzone: document.getElementById('dropzone'),
-            dropzonePath: document.getElementById('dropzone-path')
+            userDisplay: document.getElementById('user-display'),
+            viewDatabases: document.getElementById('view-databases'),
+            viewApiDocs: document.getElementById('view-api-docs'),
+            pageTitle: document.getElementById('page-title'),
+            btnNewDb: document.getElementById('btn-new-db'),
+            dbList: document.getElementById('db-list')
         };
 
         let isLoginMode = true;
-
-        // Initialize Icons
         lucide.createIcons();
 
-        // --- UTILS ---
-
-        const formatBytes = (bytes, decimals = 2) => {
-            if (!+bytes) return '0 Bytes';
-            const k = 1024, dm = decimals < 0 ? 0 : decimals, sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-        };
-
+        // --- Utils ---
         const showToast = (message, type = 'info') => {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             const colors = {
-                success: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-                error: 'bg-red-500/10 border-red-500/20 text-red-400',
-                info: 'bg-brand-500/10 border-brand-500/20 text-brand-400'
+                success: 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400',
+                error: 'bg-red-500/10 border-red-500/50 text-red-400',
+                info: 'bg-blue-500/10 border-blue-500/50 text-blue-400'
             };
-            const icons = { success: 'check-circle', error: 'alert-circle', info: 'info' };
-            
-            toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl border shadow-lg fade-in backdrop-blur-md ${colors[type]}`;
-            toast.innerHTML = `<i data-lucide="${icons[type]}" class="w-5 h-5"></i><span class="font-medium text-sm">${message}</span>`;
-            
+            toast.className = `flex items-center gap-3 px-5 py-3 rounded-xl border shadow-lg fade-in backdrop-blur-md ${colors[type]}`;
+            toast.innerHTML = `<span class="font-medium text-sm">${message}</span>`;
             container.appendChild(toast);
-            lucide.createIcons({ root: toast });
-            
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(10px)';
-                toast.style.transition = 'all 0.3s ease';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
         };
 
-        const getIconForFile = (filename) => {
-            const ext = filename.split('.').pop().toLowerCase();
-            const iconMap = {
-                'pdf': ['file-text', 'text-red-400'],
-                'png': ['image', 'text-blue-400'], 'jpg': ['image', 'text-blue-400'], 'jpeg': ['image', 'text-blue-400'], 'gif': ['image', 'text-blue-400'], 'svg': ['image', 'text-blue-400'],
-                'mp4': ['video', 'text-purple-400'], 'webm': ['video', 'text-purple-400'],
-                'mp3': ['music', 'text-yellow-400'], 'wav': ['music', 'text-yellow-400'],
-                'zip': ['archive', 'text-orange-400'], 'tar': ['archive', 'text-orange-400'], 'gz': ['archive', 'text-orange-400'],
-                'js': ['file-code', 'text-yellow-300'], 'json': ['file-json', 'text-green-400'], 'html': ['file-code', 'text-orange-500'], 'css': ['file-code', 'text-blue-300'],
-                'txt': ['file-text', 'text-gray-400'], 'md': ['file-text', 'text-gray-400']
-            };
-            return iconMap[ext] || ['file', 'text-gray-400'];
+        const formatBytes = (bytes) => {
+            if (!+bytes) return '0 B';
+            const k = 1024, i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${['B', 'KB', 'MB'][i]}`;
         };
-
-        // --- API HELPERS ---
 
         const apiRequest = async (endpoint, options = {}) => {
-            const headers = { 'Authorization': `Bearer ${state.token}` };
-            if (!(options.body instanceof FormData)) {
-                headers['Content-Type'] = 'application/json';
-                if (options.body) options.body = JSON.stringify(options.body);
+            const headers = { 'Authorization': `Bearer ${state.token}`, 'Content-Type': 'application/json' };
+            if (options.body) options.body = JSON.stringify(options.body);
+            const res = await fetch(endpoint, { ...options, headers });
+            const data = await res.json();
+            if (!res.ok) {
+                if (res.status === 401 || res.status === 403) logout();
+                throw new Error(data.error || 'API Error');
             }
-            try {
-                const res = await fetch(endpoint, { ...options, headers });
-                const data = res.headers.get('content-type')?.includes('application/json') ? await res.json() : await res.text();
-                if (!res.ok) throw new Error(data.error || 'API Error');
-                return data;
-            } catch (err) {
-                if (err.message === 'Invalid token' || err.message === 'Access denied') logout();
-                throw err;
-            }
+            return data;
         };
 
-        // --- AUTH LOGIC ---
-
+        // --- Auth ---
         const initAuth = () => {
             if (state.token && state.user) {
                 DOM.authOverlay.classList.add('hidden');
-                DOM.userNameDisplay.textContent = state.user.username;
-                DOM.userAvatar.textContent = state.user.username.charAt(0).toUpperCase();
-                loadPath(state.currentPath);
+                DOM.userDisplay.textContent = state.user.username;
+                loadFiles();
             } else {
                 DOM.authOverlay.classList.remove('hidden');
             }
         };
 
-        DOM.authSwitchBtn.onclick = (e) => {
+        document.getElementById('auth-switch-btn').onclick = (e) => {
             e.preventDefault();
             isLoginMode = !isLoginMode;
-            DOM.authSubtitle.textContent = isLoginMode ? 'Sign in to access your storage' : 'Create an account to get started';
-            DOM.authBtnText.textContent = isLoginMode ? 'Sign In' : 'Create Account';
-            DOM.authSwitchText.textContent = isLoginMode ? "Don't have an account?" : "Already have an account?";
-            DOM.authSwitchBtn.textContent = isLoginMode ? 'Create one' : 'Sign in';
+            document.getElementById('auth-subtitle').textContent = isLoginMode ? 'Developer API Storage Login' : 'Create Developer Account';
+            document.getElementById('auth-btn-text').textContent = isLoginMode ? 'Sign In' : 'Register';
+            document.getElementById('auth-switch-text').textContent = isLoginMode ? "New developer?" : "Already registered?";
+            e.target.textContent = isLoginMode ? 'Register here' : 'Sign in';
         };
 
         DOM.authForm.onsubmit = async (e) => {
             e.preventDefault();
-            const username = DOM.authUsername.value.trim();
-            const password = DOM.authPassword.value;
-            
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value;
             const btn = DOM.authForm.querySelector('button');
-            const originalContent = btn.innerHTML;
-            btn.innerHTML = `<div class="loader w-5 h-5 border-2"></div> Processing...`;
-            btn.disabled = true;
-
+            const ogText = btn.innerHTML;
+            btn.innerHTML = `<div class="loader w-5 h-5 border-2 mx-auto"></div>`;
+            
             try {
-                const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/register';
-                const res = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
+                const ep = isLoginMode ? '/auth/login' : '/auth/register';
+                const res = await fetch(ep, { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password})});
                 const data = await res.json();
-                
                 if (!res.ok) throw new Error(data.error);
 
                 if (isLoginMode) {
-                    state.token = data.token;
-                    state.user = data.user;
-                    localStorage.setItem('nexus_token', state.token);
-                    localStorage.setItem('nexus_user', JSON.stringify(state.user));
-                    showToast('Welcome back!', 'success');
+                    state.token = data.token; state.user = data.user;
+                    localStorage.setItem('nexus_cfg_token', data.token);
+                    localStorage.setItem('nexus_cfg_user', JSON.stringify(data.user));
+                    showToast('Authenticated successfully', 'success');
                     initAuth();
                 } else {
-                    showToast('Registration successful! Please sign in.', 'success');
-                    isLoginMode = true;
-                    DOM.authSwitchBtn.click(); // toggle back to login visually
-                    DOM.authPassword.value = '';
+                    showToast('Account created. Please sign in.', 'success');
+                    document.getElementById('auth-switch-btn').click();
                 }
-            } catch (err) {
-                showToast(err.message, 'error');
-            } finally {
-                btn.innerHTML = originalContent;
-                btn.disabled = false;
-            }
+            } catch (err) { showToast(err.message, 'error'); }
+            finally { btn.innerHTML = ogText; }
         };
 
         const logout = () => {
-            state.token = null;
-            state.user = null;
-            localStorage.removeItem('nexus_token');
-            localStorage.removeItem('nexus_user');
+            localStorage.removeItem('nexus_cfg_token');
+            localStorage.removeItem('nexus_cfg_user');
+            state.token = null; state.user = null;
             initAuth();
-            DOM.authPassword.value = '';
         };
 
-        // --- UI NAVIGATION ---
-
+        // --- UI Navigation ---
         const switchView = (view) => {
-            state.view = view;
+            DOM.viewDatabases.classList.add('hidden');
+            DOM.viewApiDocs.classList.add('hidden');
             
-            // Update sidebar UI
-            ['files', 'dashboard', 'docs'].forEach(v => {
-                const btn = document.getElementById(`nav-${v}`);
-                if (v === view) {
-                    btn.className = "nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-gray-800 text-brand-400 transition-colors";
-                } else {
-                    btn.className = "nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors";
-                }
-            });
+            document.getElementById('nav-databases').className = "nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 transition-colors";
+            document.getElementById('nav-api-docs').className = "nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 transition-colors";
 
-            // Toggle views
-            DOM.viewFiles.classList.add('hidden');
-            DOM.viewDashboard.classList.add('hidden');
-            DOM.viewDocs.classList.add('hidden');
-            
-            if (view === 'files') {
-                DOM.viewFiles.classList.remove('hidden');
-                DOM.topbarActions.classList.remove('hidden');
-                DOM.breadcrumbs.classList.remove('hidden');
-                loadPath(state.currentPath);
-            } else if (view === 'dashboard') {
-                DOM.viewDashboard.classList.remove('hidden');
-                DOM.topbarActions.classList.add('hidden');
-                DOM.breadcrumbs.classList.add('hidden');
-                loadDashboardStats();
-            } else if (view === 'docs') {
-                DOM.viewDocs.classList.remove('hidden');
-                DOM.topbarActions.classList.add('hidden');
-                DOM.breadcrumbs.classList.add('hidden');
+            if (view === 'databases') {
+                DOM.viewDatabases.classList.remove('hidden');
+                document.getElementById('nav-databases').classList.add('bg-primary-500/10', 'text-primary-500');
+                DOM.pageTitle.textContent = "Data Collections (JSON)";
+                DOM.btnNewDb.classList.remove('hidden');
+                loadFiles();
+            } else {
+                DOM.viewApiDocs.classList.remove('hidden');
+                document.getElementById('nav-api-docs').classList.add('bg-primary-500/10', 'text-primary-500');
+                DOM.pageTitle.textContent = "API Documentation";
+                DOM.btnNewDb.classList.add('hidden');
             }
         };
 
-        const renderBreadcrumbs = () => {
-            const parts = state.currentPath.split('/').filter(p => p);
-            let html = `
-                <button onclick="loadPath('/')" class="hover:text-gray-200 flex items-center gap-1 transition-colors">
-                    <i data-lucide="home" class="w-4 h-4"></i>
-                </button>
-            `;
-            let accumPath = '';
-            parts.forEach((part, index) => {
-                accumPath += `/${part}`;
-                const isLast = index === parts.length - 1;
-                html += `
-                    <i data-lucide="chevron-right" class="w-4 h-4 text-gray-600"></i>
-                    <button onclick="loadPath('${accumPath}')" class="${isLast ? 'text-gray-200 font-medium' : 'hover:text-gray-200 transition-colors'} truncate max-w-[120px]">
-                        ${part}
-                    </button>
-                `;
-            });
-            DOM.breadcrumbs.innerHTML = html;
-            lucide.createIcons({ root: DOM.breadcrumbs });
-        };
-
-        // --- FILE OPERATIONS ---
-
-        const loadPath = async (path) => {
-            state.currentPath = path;
-            state.selectedPaths.clear();
-            updateSelectionUI();
-            renderBreadcrumbs();
-            
-            DOM.fileGrid.innerHTML = '<div class="col-span-full flex justify-center py-12"><div class="loader"></div></div>';
-            
+        // --- File Operations ---
+        const loadFiles = async () => {
+            DOM.dbList.innerHTML = '<div class="col-span-full flex justify-center py-12"><div class="loader"></div></div>';
             try {
-                const files = await apiRequest(`/api/list?path=${encodeURIComponent(path)}`);
-                state.files = files;
+                state.files = await apiRequest('/dashboard/files');
                 renderFiles();
-            } catch (err) {
-                showToast(`Failed to load directory: ${err.message}`, 'error');
-                if (path !== '/') loadPath('/');
-            }
+            } catch(err) { showToast('Error loading databases', 'error'); }
         };
 
         const renderFiles = () => {
             if (state.files.length === 0) {
-                DOM.fileGrid.innerHTML = `
-                    <div class="col-span-full flex flex-col items-center justify-center py-24 text-gray-500">
-                        <i data-lucide="folder-open" class="w-16 h-16 mb-4 opacity-50"></i>
-                        <p class="text-lg font-medium text-gray-400">This folder is empty</p>
-                        <p class="text-sm">Drag and drop files here or click upload.</p>
+                DOM.dbList.innerHTML = `
+                    <div class="col-span-full flex flex-col items-center justify-center py-24 text-gray-600 border-2 border-dashed border-gray-800 rounded-2xl">
+                        <i data-lucide="database" class="w-16 h-16 mb-4 opacity-50"></i>
+                        <p class="text-lg font-medium text-gray-400">No JSON Databases found</p>
+                        <p class="text-sm mt-2">Click "New JSON DB" to create your first config file.</p>
                     </div>`;
-                lucide.createIcons({ root: DOM.fileGrid });
-                return;
+                lucide.createIcons({root:DOM.dbList}); return;
             }
 
-            DOM.fileGrid.innerHTML = state.files.map(item => {
-                const isDir = item.isDirectory;
-                const [iconName, iconColor] = isDir ? ['folder', 'text-brand-500 fill-brand-500/20'] : getIconForFile(item.name);
-                const publicBadge = item.isPublic ? `<div class="absolute top-2 right-2 bg-purple-500 text-white rounded-full p-1 shadow-md" title="Public File"><i data-lucide="globe" class="w-3 h-3"></i></div>` : '';
-                
-                return `
-                    <div class="file-item relative flex flex-col p-4 bg-gray-900 border border-gray-800 rounded-xl hover:bg-gray-800 transition-all cursor-pointer group hover:shadow-lg select-none"
-                         data-path="${item.path}" 
-                         data-isdir="${isDir}"
-                         onclick="handleItemClick(event, '${item.path}', ${isDir})"
-                         oncontextmenu="handleContextMenu(event, '${item.path}', ${isDir})"
-                         draggable="true"
-                         ondragstart="handleItemDragStart(event, '${item.path}')"
-                         ondragover="handleItemDragOver(event, ${isDir})"
-                         ondragleave="handleItemDragLeave(event)"
-                         ondrop="handleItemDrop(event, '${item.path}', ${isDir})">
-                        ${publicBadge}
-                        <div class="h-20 flex items-center justify-center mb-3 transition-transform group-hover:scale-110">
-                            <i data-lucide="${iconName}" class="w-12 h-12 ${iconColor}"></i>
+            DOM.dbList.innerHTML = state.files.map(file => {
+                let keysHtml = '';
+                if(file.keys.length > 0) {
+                    keysHtml = file.keys.map(k => `
+                        <div class="flex items-center justify-between bg-gray-950 p-2 rounded border border-gray-800 mt-2 group">
+                            <div class="flex items-center gap-2 overflow-hidden">
+                                <span class="text-xs font-bold px-1.5 py-0.5 rounded bg-gray-800 text-gray-300">${k.name}</span>
+                                <code class="text-xs text-yellow-500 truncate" title="${k.key}">${k.key.substring(0,10)}...</code>
+                                <span class="text-[10px] uppercase text-gray-500 ml-1 border border-gray-700 px-1 rounded">${k.permissions.join(',')}</span>
+                            </div>
+                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick="copyToClipboard('${k.key}')" class="p-1 hover:text-white text-gray-400" title="Copy Key"><i data-lucide="copy" class="w-3 h-3"></i></button>
+                                <button onclick="deleteKey('${k.key}')" class="p-1 hover:text-red-400 text-gray-400" title="Delete Key"><i data-lucide="trash" class="w-3 h-3"></i></button>
+                            </div>
                         </div>
-                        <h4 class="text-sm font-medium text-center truncate text-gray-200" title="${item.name}">${item.name}</h4>
-                        <p class="text-xs text-center text-gray-500 mt-1">${isDir ? '-' : formatBytes(item.size)}</p>
+                    `).join('');
+                } else {
+                    keysHtml = `<div class="text-xs text-gray-600 italic mt-2">No API keys generated yet.</div>`;
+                }
+
+                return `
+                <div class="bg-gray-900 border border-gray-800 rounded-xl p-5 flex flex-col shadow-sm hover:border-gray-700 transition-colors">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2.5 bg-primary-500/10 rounded-lg"><i data-lucide="file-json" class="w-6 h-6 text-primary-500"></i></div>
+                            <div>
+                                <h3 class="font-bold text-white text-lg leading-tight">${file.name}</h3>
+                                <p class="text-xs text-gray-500 mt-0.5">${formatBytes(file.size)}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openEditor('${file.name}')" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded text-gray-200 transition-colors">Edit JSON</button>
+                            <button onclick="deleteFile('${file.name}')" class="px-2 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        </div>
                     </div>
-                `;
-            }).join('');
-            
-            lucide.createIcons({ root: DOM.fileGrid });
+                    
+                    <div class="mt-auto pt-4 border-t border-gray-800/50">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Access API Keys</h4>
+                            <button onclick="openKeyModal('${file.name}')" class="text-xs text-primary-500 hover:text-primary-400 flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Create Key</button>
+                        </div>
+                        <div class="space-y-1">
+                            ${keysHtml}
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+            lucide.createIcons({root:DOM.dbList});
         };
 
-        const handleItemClick = (e, path, isDir) => {
-            // Handle double click for opening
-            if (e.detail === 2) {
-                if (isDir) loadPath(path);
-                else openPreview(path);
+        const createNewDB = async () => {
+            let name = prompt("Enter JSON filename (e.g. config, bot_data):");
+            if (!name) return;
+            if (!name.endsWith('.json')) name += '.json';
+            
+            try {
+                await apiRequest('/dashboard/file', { method: 'POST', body: { filename: name, content: "{\n  \"status\": \"ok\"\n}" }});
+                showToast(`Created ${name}`, 'success');
+                loadFiles();
+            } catch(err) { showToast(err.message, 'error'); }
+        };
+
+        const deleteFile = async (name) => {
+            if(!confirm(`Delete ${name} permanently?`)) return;
+            try {
+                await apiRequest(`/dashboard/file/${name}`, { method: 'DELETE' });
+                showToast('Database deleted', 'success');
+                loadFiles();
+            } catch(err) { showToast(err.message, 'error'); }
+        };
+
+        // --- JSON Editor ---
+        const openEditor = async (filename) => {
+            state.currentEditingFile = filename;
+            document.getElementById('editor-title').textContent = filename;
+            document.getElementById('editor-textarea').value = 'Loading...';
+            document.getElementById('editor-status').textContent = '';
+            document.getElementById('editor-modal').classList.remove('hidden');
+
+            try {
+                const res = await apiRequest(`/dashboard/file/${filename}`);
+                document.getElementById('editor-textarea').value = JSON.stringify(res.content, null, 2);
+            } catch(err) {
+                document.getElementById('editor-textarea').value = `Error loading file: ${err.message}`;
+            }
+        };
+
+        const closeEditor = () => {
+            document.getElementById('editor-modal').classList.add('hidden');
+            state.currentEditingFile = null;
+        };
+
+        const formatJSON = () => {
+            const ta = document.getElementById('editor-textarea');
+            try {
+                const parsed = JSON.parse(ta.value);
+                ta.value = JSON.stringify(parsed, null, 2);
+                document.getElementById('editor-status').innerHTML = '<span class="text-emerald-400">JSON Valid & Formatted</span>';
+            } catch (e) {
+                document.getElementById('editor-status').innerHTML = '<span class="text-red-400">Invalid JSON Format!</span>';
+            }
+        };
+
+        const saveEditor = async () => {
+            if(!state.currentEditingFile) return;
+            const content = document.getElementById('editor-textarea').value;
+            
+            // Validate first
+            try { JSON.parse(content); } catch (e) {
+                showToast('Cannot save: Invalid JSON format', 'error');
                 return;
             }
 
-            // Handle selection
-            if (e.ctrlKey || e.metaKey) {
-                if (state.selectedPaths.has(path)) state.selectedPaths.delete(path);
-                else state.selectedPaths.add(path);
-            } else {
-                state.selectedPaths.clear();
-                state.selectedPaths.add(path);
-            }
-            
-            updateSelectionUI();
-        };
-
-        const updateSelectionUI = () => {
-            document.querySelectorAll('.file-item').forEach(el => {
-                if (state.selectedPaths.has(el.dataset.path)) el.classList.add('selected');
-                else el.classList.remove('selected');
-            });
-            
-            if (state.selectedPaths.size > 0) {
-                DOM.btnDelete.classList.remove('hidden');
-            } else {
-                DOM.btnDelete.classList.add('hidden');
-            }
-        };
-
-        // --- ACTIONS ---
-
-        const createNewFolder = async () => {
-            const name = prompt('Folder name:');
-            if (!name) return;
-            try {
-                const targetPath = state.currentPath === '/' ? `/${name}` : `${state.currentPath}/${name}`;
-                await apiRequest('/api/folder', { method: 'POST', body: { path: targetPath } });
-                showToast('Folder created', 'success');
-                loadPath(state.currentPath);
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
-        };
-
-        const triggerUpload = () => DOM.fileUploadInput.click();
-
-        const handleFileUpload = async (e) => {
-            const files = e.target.files;
-            if (!files.length) return;
-            uploadFilesAPI(files);
-            e.target.value = ''; // reset
-        };
-
-        const uploadFilesAPI = async (filesList) => {
-            const formData = new FormData();
-            formData.append('path', state.currentPath);
-            for (let i = 0; i < filesList.length; i++) {
-                formData.append('files', filesList[i]);
-            }
-
-            showToast(`Uploading ${filesList.length} item(s)...`, 'info');
-            try {
-                await apiRequest('/api/file', { method: 'POST', body: formData });
-                showToast('Upload complete', 'success');
-                loadPath(state.currentPath);
-            } catch (err) {
-                showToast(`Upload failed: ${err.message}`, 'error');
-            }
-        };
-
-        const deleteSelected = async () => {
-            if (state.selectedPaths.size === 0) return;
-            if (!confirm(`Delete ${state.selectedPaths.size} item(s)? This cannot be undone.`)) return;
-
-            try {
-                await apiRequest('/api/delete', { method: 'POST', body: { paths: Array.from(state.selectedPaths) } });
-                showToast('Items deleted', 'success');
-                loadPath(state.currentPath);
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
-        };
-
-        const togglePublicShare = async (path, isPublic) => {
-            try {
-                const res = await apiRequest('/api/key', { method: 'POST', body: { path, isPublic } });
-                if (isPublic) {
-                    const link = `${window.location.origin}/public/${res.key}`;
-                    navigator.clipboard.writeText(link);
-                    showToast('Public link generated and copied to clipboard!', 'success');
-                } else {
-                    showToast('File made private.', 'info');
-                }
-                loadPath(state.currentPath); // refresh to show/hide badge
-            } catch(err) {
-                showToast(err.message, 'error');
-            }
-        };
-
-        // --- CONTEXT MENU ---
-
-        const handleContextMenu = (e, path, isDir) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (!state.selectedPaths.has(path)) {
-                state.selectedPaths.clear();
-                state.selectedPaths.add(path);
-                updateSelectionUI();
-            }
-
-            const isSingle = state.selectedPaths.size === 1;
-            const fileItem = state.files.find(f => f.path === path);
-
-            let html = '';
-            if (isSingle) {
-                html += `
-                    <button onclick="handleContextAction('open', '${path}')" class="w-full text-left px-4 py-2 hover:bg-gray-700 hover:text-white flex items-center gap-2 transition-colors rounded-t-lg">
-                        <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i> Open
-                    </button>
-                `;
-                if (!isDir) {
-                    const isTxt = ['txt', 'json', 'md', 'html', 'css', 'js'].includes(path.split('.').pop().toLowerCase());
-                    if (isTxt) {
-                        html += `
-                        <button onclick="openTextEditor('${path}')" class="w-full text-left px-4 py-2 hover:bg-gray-700 hover:text-white flex items-center gap-2 transition-colors">
-                            <i data-lucide="edit" class="w-4 h-4 text-brand-400"></i> Edit Text
-                        </button>`;
-                    }
-                    if (fileItem && fileItem.isPublic) {
-                        html += `
-                        <button onclick="handleContextAction('share_off', '${path}')" class="w-full text-left px-4 py-2 hover:bg-gray-700 hover:text-white flex items-center gap-2 transition-colors">
-                            <i data-lucide="lock" class="w-4 h-4 text-purple-400"></i> Make Private
-                        </button>
-                        <button onclick="handleContextAction('copy_link', '${fileItem.apiKey}')" class="w-full text-left px-4 py-2 hover:bg-gray-700 hover:text-white flex items-center gap-2 transition-colors border-b border-gray-700">
-                            <i data-lucide="copy" class="w-4 h-4 text-gray-400"></i> Copy Public Link
-                        </button>
-                        `;
-                    } else {
-                        html += `
-                        <button onclick="handleContextAction('share_on', '${path}')" class="w-full text-left px-4 py-2 hover:bg-gray-700 hover:text-white flex items-center gap-2 transition-colors border-b border-gray-700">
-                            <i data-lucide="globe" class="w-4 h-4 text-purple-400"></i> Share Publicly
-                        </button>`;
-                    }
-                }
-            }
-
-            html += `
-                <button onclick="deleteSelected()" class="w-full text-left px-4 py-2 hover:bg-red-500 hover:text-white flex items-center gap-2 transition-colors text-red-400 ${isSingle?'rounded-b-lg':'rounded-lg'}">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i> Delete ${isSingle ? '' : `(${state.selectedPaths.size})`}
-                </button>
-            `;
-
-            DOM.contextMenu.innerHTML = html;
-            lucide.createIcons({ root: DOM.contextMenu });
-            
-            DOM.contextMenu.style.left = `${e.clientX}px`;
-            DOM.contextMenu.style.top = `${e.clientY}px`;
-            DOM.contextMenu.classList.remove('hidden');
-        };
-
-        window.handleContextAction = (action, payload) => {
-            DOM.contextMenu.classList.add('hidden');
-            if (action === 'open') {
-                const isDir = state.files.find(f => f.path === payload)?.isDirectory;
-                if (isDir) loadPath(payload); else openPreview(payload);
-            }
-            if (action === 'share_on') togglePublicShare(payload, true);
-            if (action === 'share_off') togglePublicShare(payload, false);
-            if (action === 'copy_link') {
-                navigator.clipboard.writeText(`${window.location.origin}/public/${payload}`);
-                showToast('Link copied to clipboard', 'success');
-            }
-        };
-
-        // Close context menu on global click
-        document.addEventListener('click', () => {
-            DOM.contextMenu.classList.add('hidden');
-        });
-
-        // --- PREVIEW SYSTEM ---
-
-        const openPreview = async (path) => {
-            const ext = path.split('.').pop().toLowerCase();
-            const filename = path.split('/').pop();
-            const fileItem = state.files.find(f => f.path === path);
-            
-            document.getElementById('preview-title').innerHTML = `<i data-lucide="file" class="w-5 h-5"></i> ${filename}`;
-            const shareBtn = document.getElementById('preview-share-btn');
-            
-            if (fileItem && !fileItem.isPublic) {
-                shareBtn.classList.remove('hidden');
-                shareBtn.onclick = () => { togglePublicShare(path, true); openPreview(path); }; // Re-render to update state
-                shareBtn.innerHTML = `<i data-lucide="link" class="w-4 h-4"></i> Share Publicly`;
-            } else if (fileItem && fileItem.isPublic) {
-                 shareBtn.classList.remove('hidden');
-                 shareBtn.onclick = () => { 
-                    navigator.clipboard.writeText(`${window.location.origin}/public/${fileItem.apiKey}`);
-                    showToast('Copied!', 'success');
-                 };
-                 shareBtn.innerHTML = `<i data-lucide="copy" class="w-4 h-4"></i> Copy Link`;
-            }
-
-            const contentDiv = document.getElementById('preview-content');
-            contentDiv.innerHTML = '<div class="loader w-8 h-8"></div>';
-            document.getElementById('preview-modal').classList.remove('hidden');
-            lucide.createIcons({ root: document.getElementById('preview-modal') });
-
-            // Generate a temporary access URL by fetching and creating object URL (since APIs require JWT)
-            try {
-                const res = await fetch(`/api/list?path=${encodeURIComponent(state.currentPath)}`, {
-                    headers: { 'Authorization': `Bearer ${state.token}` }
-                });
-                
-                // If it's a public file, we can just use the public endpoint for iframe/img
-                let renderUrl = '';
-                if (fileItem && fileItem.isPublic) {
-                    renderUrl = `/public/${fileItem.apiKey}`;
-                } else {
-                    // For private files, we need to temporarily share it or fetch blob
-                    // For simplicity in this demo, let's just create a temporary public key and delete it later, 
-                    // OR fetch as blob. Let's fetch as blob for security.
-                    
-                    // Actually, getting raw file data via GET /public/:key is best.
-                    // Let's create a temp key implicitly via an API, or simply fetch it locally
-                }
-
-                // Temporary solution for private file preview without complex blob logic:
-                // We'll require files to be public to preview them natively in img/video tags, 
-                // OR we generate a temporary single-use token in a real app.
-                // For this MVP, if it's not public, we'll auto-make it public, load, and revert. 
-                // A better way: fetch blob and use ObjectURL.
-                
-                let objectUrl = null;
-                if (!fileItem.isPublic) {
-                    // Temporarily make public to get a key, or fetch via auth headers (fetch can't put auth headers in <img src=>)
-                    // Let's fetch blob
-                    const pubRes = await apiRequest('/api/key', { method: 'POST', body: { path, isPublic: true } });
-                    renderUrl = `/public/${pubRes.key}`;
-                    // Schedule cleanup
-                    setTimeout(() => {
-                        if(fileItem && !fileItem.isPublic) apiRequest('/api/key', { method: 'POST', body: { path, isPublic: false } });
-                    }, 5000);
-                } else {
-                    renderUrl = `/public/${fileItem.apiKey}`;
-                }
-
-
-                if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(ext)) {
-                    contentDiv.innerHTML = `<img src="${renderUrl}" class="max-w-full max-h-full object-contain rounded shadow-2xl">`;
-                } else if (['mp4', 'webm'].includes(ext)) {
-                    contentDiv.innerHTML = `<video src="${renderUrl}" controls autoplay class="max-w-full max-h-full shadow-2xl rounded"></video>`;
-                } else if (['txt', 'json', 'md', 'js', 'html', 'css'].includes(ext)) {
-                    const text = await (await fetch(renderUrl)).text();
-                    contentDiv.innerHTML = `<pre class="bg-gray-900 text-gray-300 p-6 rounded-xl w-full h-full overflow-auto font-mono text-sm border border-gray-800">${text.replace(/</g, '&lt;')}</pre>`;
-                } else {
-                    contentDiv.innerHTML = `
-                        <div class="text-center">
-                            <i data-lucide="file" class="w-16 h-16 text-gray-500 mx-auto mb-4"></i>
-                            <p class="text-gray-300 mb-4">No preview available for this file type.</p>
-                            <a href="${renderUrl}?download=1" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-lg transition-colors inline-block">Download File</a>
-                        </div>`;
-                    lucide.createIcons({ root: contentDiv });
-                }
-
-            } catch(err) {
-                contentDiv.innerHTML = `<p class="text-red-400">Error loading preview: ${err.message}</p>`;
-            }
-        };
-
-        const closePreview = () => {
-            document.getElementById('preview-modal').classList.add('hidden');
-            document.getElementById('preview-content').innerHTML = ''; // stop videos etc
-        };
-
-        // --- TEXT EDITOR ---
-        let currentEditingPath = null;
-        window.openTextEditor = async (path) => {
-            currentEditingPath = path;
-            const filename = path.split('/').pop();
-            document.getElementById('editor-title').innerHTML = `<i data-lucide="file-edit" class="w-4 h-4 text-brand-400"></i> Edit ${filename}`;
-            document.getElementById('editor-textarea').value = 'Loading...';
-            document.getElementById('editor-modal').classList.remove('hidden');
-            lucide.createIcons({ root: document.getElementById('editor-title') });
-
-            try {
-                // To fetch private file text securely
-                const fileItem = state.files.find(f => f.path === path);
-                let fetchUrl = '';
-                let tempKey = null;
-
-                if (fileItem && fileItem.isPublic) {
-                    fetchUrl = `/public/${fileItem.apiKey}`;
-                } else {
-                    const pubRes = await apiRequest('/api/key', { method: 'POST', body: { path, isPublic: true } });
-                    fetchUrl = `/public/${pubRes.key}`;
-                    tempKey = pubRes.key;
-                }
-
-                const res = await fetch(fetchUrl);
-                const text = await res.text();
-                document.getElementById('editor-textarea').value = text;
-
-                // Cleanup temp key
-                if (tempKey) {
-                    await apiRequest('/api/key', { method: 'POST', body: { path, isPublic: false } });
-                }
-
-            } catch (err) {
-                document.getElementById('editor-textarea').value = `Error: ${err.message}`;
-            }
-        };
-
-        window.closeEditor = () => {
-            document.getElementById('editor-modal').classList.add('hidden');
-            currentEditingPath = null;
-        };
-
-        window.saveEditor = async () => {
-            if (!currentEditingPath) return;
-            const content = document.getElementById('editor-textarea').value;
-            const btn = document.querySelector('#editor-modal button.bg-brand-600');
+            const btn = document.getElementById('btn-save-editor');
+            const og = btn.innerHTML;
             btn.innerHTML = `<div class="loader w-4 h-4 border-2"></div>`;
             
             try {
-                await apiRequest('/api/file', {
-                    method: 'PUT',
-                    body: { path: currentEditingPath, content }
-                });
-                showToast('File saved successfully', 'success');
+                await apiRequest('/dashboard/file', { method: 'POST', body: { filename: state.currentEditingFile, content }});
+                showToast('Saved successfully', 'success');
                 closeEditor();
-            } catch (err) {
-                showToast(`Save failed: ${err.message}`, 'error');
-                btn.innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> Save`;
-                lucide.createIcons({ root: btn.parentElement });
-            }
+                loadFiles();
+            } catch(err) { showToast(err.message, 'error'); }
+            finally { btn.innerHTML = og; }
         };
 
-
-        // --- DRAG AND DROP (FILES) ---
-
-        let dragTargetFolder = null;
-
-        window.handleItemDragStart = (e, path) => {
-            if (!state.selectedPaths.has(path)) {
-                state.selectedPaths.clear();
-                state.selectedPaths.add(path);
-                updateSelectionUI();
-            }
-            e.dataTransfer.setData('application/json', JSON.stringify(Array.from(state.selectedPaths)));
-            e.dataTransfer.effectAllowed = 'move';
-        };
-
-        window.handleItemDragOver = (e, isDir) => {
-            if (isDir) {
+        // Handle Tab key in Textarea
+        document.getElementById('editor-textarea').addEventListener('keydown', function(e) {
+            if (e.key == 'Tab') {
                 e.preventDefault();
-                e.currentTarget.classList.add('ring-2', 'ring-brand-500', 'bg-brand-500/10');
+                var start = this.selectionStart;
+                var end = this.selectionEnd;
+                this.value = this.value.substring(0, start) + "  " + this.value.substring(end);
+                this.selectionStart = this.selectionEnd = start + 2;
             }
+        });
+
+        // --- API Keys ---
+        const openKeyModal = (filename) => {
+            state.targetFileForKey = filename;
+            document.getElementById('key-modal-desc').innerHTML = `Create a new access key for <b class="text-primary-400">${filename}</b>`;
+            document.getElementById('key-name').value = '';
+            document.getElementById('key-perm-write').checked = false;
+            document.getElementById('key-modal').classList.remove('hidden');
         };
 
-        window.handleItemDragLeave = (e) => {
-            e.currentTarget.classList.remove('ring-2', 'ring-brand-500', 'bg-brand-500/10');
+        const closeKeyModal = () => {
+            document.getElementById('key-modal').classList.add('hidden');
+            state.targetFileForKey = null;
         };
 
-        window.handleItemDrop = async (e, destPath, isDir) => {
-            e.preventDefault();
-            e.currentTarget.classList.remove('ring-2', 'ring-brand-500', 'bg-brand-500/10');
-            if (!isDir) return;
-
-            const data = e.dataTransfer.getData('application/json');
-            if (!data) return; // Might be a file upload drop, handled globally
+        const generateKey = async () => {
+            if(!state.targetFileForKey) return;
+            const name = document.getElementById('key-name').value.trim() || 'API Key';
+            const canWrite = document.getElementById('key-perm-write').checked;
+            const perms = canWrite ? ['read', 'write'] : ['read'];
 
             try {
-                const itemsToMove = JSON.parse(data);
-                // Prevent moving into itself
-                if (itemsToMove.includes(destPath)) return showToast("Cannot move a folder into itself", "error");
-                
-                await apiRequest('/api/move', { method: 'POST', body: { items: itemsToMove, destination: destPath } });
-                showToast('Items moved', 'success');
-                loadPath(state.currentPath);
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
+                const res = await apiRequest('/dashboard/apikey', { 
+                    method: 'POST', 
+                    body: { filename: state.targetFileForKey, keyName: name, permissions: perms }
+                });
+                showToast('API Key generated!', 'success');
+                closeKeyModal();
+                loadFiles();
+            } catch(err) { showToast(err.message, 'error'); }
         };
 
-        // Global Drag/Drop Upload
-        document.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            if (state.view !== 'files') return;
-            // Only show dropzone if dragging local files, not UI items
-            if (e.dataTransfer.types.includes('Files')) {
-                DOM.dropzone.classList.remove('hidden');
-                DOM.dropzonePath.textContent = state.currentPath;
-            }
-        });
-
-        document.addEventListener('dragleave', (e) => {
-            if (e.relatedTarget === null) {
-                DOM.dropzone.classList.add('hidden');
-            }
-        });
-
-        document.addEventListener('drop', (e) => {
-            e.preventDefault();
-            DOM.dropzone.classList.add('hidden');
-            if (state.view !== 'files') return;
-            
-            if (e.dataTransfer.files.length > 0) {
-                uploadFilesAPI(e.dataTransfer.files);
-            }
-        });
-
-
-        // --- DRAG SELECTION BOX ---
-
-        DOM.viewFiles.addEventListener('mousedown', (e) => {
-            // Ignore if clicking on a file item or interactive element
-            if (e.target.closest('.file-item') || e.target.closest('button') || e.target.closest('input') || e.button !== 0) return;
-            
-            state.isDraggingBox = true;
-            state.dragStartX = e.pageX;
-            state.dragStartY = e.pageY;
-            
-            DOM.selectionBox.style.left = `${state.dragStartX}px`;
-            DOM.selectionBox.style.top = `${state.dragStartY}px`;
-            DOM.selectionBox.style.width = '0px';
-            DOM.selectionBox.style.height = '0px';
-            DOM.selectionBox.style.display = 'block';
-
-            if (!e.ctrlKey && !e.metaKey) {
-                state.selectedPaths.clear();
-                updateSelectionUI();
-            }
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!state.isDraggingBox) return;
-
-            const currentX = e.pageX;
-            const currentY = e.pageY;
-
-            const left = Math.min(currentX, state.dragStartX);
-            const top = Math.min(currentY, state.dragStartY);
-            const width = Math.abs(currentX - state.dragStartX);
-            const height = Math.abs(currentY - state.dragStartY);
-
-            DOM.selectionBox.style.left = `${left}px`;
-            DOM.selectionBox.style.top = `${top}px`;
-            DOM.selectionBox.style.width = `${width}px`;
-            DOM.selectionBox.style.height = `${height}px`;
-
-            // Calculate intersections
-            const boxRect = DOM.selectionBox.getBoundingClientRect();
-            document.querySelectorAll('.file-item').forEach(item => {
-                const itemRect = item.getBoundingClientRect();
-                const isIntersecting = !(
-                    boxRect.right < itemRect.left || 
-                    boxRect.left > itemRect.right || 
-                    boxRect.bottom < itemRect.top || 
-                    boxRect.top > itemRect.bottom
-                );
-
-                if (isIntersecting) {
-                    item.classList.add('selected');
-                    state.selectedPaths.add(item.dataset.path);
-                } else {
-                    if (!e.ctrlKey && !e.metaKey) {
-                        item.classList.remove('selected');
-                        state.selectedPaths.delete(item.dataset.path);
-                    }
-                }
-            });
-            
-            if (state.selectedPaths.size > 0) DOM.btnDelete.classList.remove('hidden');
-            else DOM.btnDelete.classList.add('hidden');
-        });
-
-        document.addEventListener('mouseup', () => {
-            if (state.isDraggingBox) {
-                state.isDraggingBox = false;
-                DOM.selectionBox.style.display = 'none';
-            }
-        });
-
-        // --- DASHBOARD ---
-        const loadDashboardStats = async () => {
+        const deleteKey = async (key) => {
+            if(!confirm('Revoke this API key? Apps using it will lose access immediately.')) return;
             try {
-                const stats = await apiRequest('/api/stats');
-                document.getElementById('stat-size').textContent = formatBytes(stats.totalStorageSize);
-                document.getElementById('stat-files').textContent = stats.totalFiles;
-                document.getElementById('stat-public').textContent = stats.publicFilesCount;
-            } catch (err) {
-                console.error("Failed to load stats", err);
-            }
+                await apiRequest(`/dashboard/apikey/${key}`, { method: 'DELETE' });
+                showToast('Key revoked', 'success');
+                loadFiles();
+            } catch(err) { showToast(err.message, 'error'); }
         };
 
-        // --- DOCS ---
-        window.copySDK = () => {
-            const code = document.querySelector('pre').innerText;
-            navigator.clipboard.writeText(code);
-            showToast('SDK code copied to clipboard', 'success');
+        const copyToClipboard = (text) => {
+            navigator.clipboard.writeText(text);
+            showToast('API Key copied to clipboard', 'success');
         };
 
-        // Initialize App
+        // Boot
         initAuth();
 
     </script>

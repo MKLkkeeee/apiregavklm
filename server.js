@@ -5,65 +5,53 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const multer = require('multer');
 const crypto = require('crypto');
-const mime = require('mime-types');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'nexus_config_secret_2026';
 const DB_FILE = path.join(__dirname, 'db.json');
 const STORAGE_DIR = path.join(__dirname, 'storage');
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+// เพิ่ม limit สำหรับ body เผื่อเก็บ JSON ใหญ่ๆ
+app.use(express.json({ limit: '10mb' })); 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Configure Multer for file uploads
-const upload = multer({ dest: path.join(__dirname, 'temp') });
-
-// Database Initialization
+// Initialization
 async function initDB() {
-    if (!fs.existsSync(STORAGE_DIR)) {
-        await fsPromises.mkdir(STORAGE_DIR, { recursive: true });
-    }
+    if (!fs.existsSync(STORAGE_DIR)) await fsPromises.mkdir(STORAGE_DIR, { recursive: true });
     if (!fs.existsSync(DB_FILE)) {
-        const initialData = { users: [], keys: {} };
-        await fsPromises.writeFile(DB_FILE, JSON.stringify(initialData, null, 2));
-    }
-    if (!fs.existsSync(path.join(__dirname, 'temp'))) {
-        await fsPromises.mkdir(path.join(__dirname, 'temp'), { recursive: true });
+        await fsPromises.writeFile(DB_FILE, JSON.stringify({ users: [], apikeys: {} }, null, 2));
     }
 }
 
-// Database Helpers
 async function readDB() {
-    const data = await fsPromises.readFile(DB_FILE, 'utf8');
-    return JSON.parse(data);
+    return JSON.parse(await fsPromises.readFile(DB_FILE, 'utf8'));
 }
 async function writeDB(data) {
     await fsPromises.writeFile(DB_FILE, JSON.stringify(data, null, 2));
 }
 
-// Security: Path Traversal Prevention
+// Security: ป้องกัน Path Traversal
 function getSafePath(userId, targetPath) {
     const userStoragePath = path.resolve(STORAGE_DIR, userId);
-    // Remove leading slashes from targetPath to prevent absolute path resolution issues
     const normalizedTarget = targetPath.replace(/^(\.\.[\/\\])+/, '').replace(/^[/\\]+/, '');
     const resolvedPath = path.resolve(userStoragePath, normalizedTarget);
     
-    if (!resolvedPath.startsWith(userStoragePath)) {
-        throw new Error('Path traversal detected');
+    if (!resolvedPath.startsWith(userStoragePath)) throw new Error('Path traversal detected');
+    // บังคับให้เป็นไฟล์ .json เท่านั้น สำหรับระบบนี้
+    if (!resolvedPath.endsWith('.json') && path.extname(resolvedPath) !== '') {
+        throw new Error('Only .json files are supported');
     }
     return resolvedPath;
 }
 
-// Authentication Middleware
-function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    
+// --- AUTHENTICATION (สำหรับหน้าเว็บ Dashboard) ---
+
+function authenticateUI(req, res, next) {
+    const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Access denied' });
     
     jwt.verify(token, JWT_SECRET, (err, user) => {
@@ -73,34 +61,26 @@ function authenticateToken(req, res, next) {
     });
 }
 
-// --- AUTHENTICATION ROUTES ---
-
-app.post('/api/auth/register', async (req, res) => {
+app.post('/auth/register', async (req, res) => {
     try {
         const { username, password } = req.body;
         if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
 
         const db = await readDB();
-        if (db.users.find(u => u.username === username)) {
-            return res.status(400).json({ error: 'User already exists' });
-        }
+        if (db.users.find(u => u.username === username)) return res.status(400).json({ error: 'User already exists' });
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const userId = crypto.randomUUID();
         
         db.users.push({ id: userId, username, password: hashedPassword });
         await writeDB(db);
-
-        // Create isolated storage for user
         await fsPromises.mkdir(path.join(STORAGE_DIR, userId), { recursive: true });
 
-        res.status(201).json({ message: 'User registered successfully' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        res.status(201).json({ message: 'User registered' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/auth/login', async (req, res) => {
     try {
         const { username, password } = req.body;
         const db = await readDB();
@@ -112,264 +92,218 @@ app.post('/api/auth/login', async (req, res) => {
 
         const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
         res.json({ token, user: { id: user.id, username: user.username } });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- FILE SYSTEM ROUTES (PROTECTED) ---
 
-app.get('/api/list', authenticateToken, async (req, res) => {
+// --- DASHBOARD API (จัดการไฟล์และการตั้งค่าผ่านหน้าเว็บ) ---
+
+// ดึงรายการไฟล์
+app.get('/dashboard/files', authenticateUI, async (req, res) => {
     try {
-        const targetPath = req.query.path || '/';
-        const safePath = getSafePath(req.user.id, targetPath);
-        
-        if (!fs.existsSync(safePath)) {
-            return res.status(404).json({ error: 'Directory not found' });
-        }
+        const userDir = path.resolve(STORAGE_DIR, req.user.id);
+        if (!fs.existsSync(userDir)) return res.json([]);
 
-        const items = await fsPromises.readdir(safePath, { withFileTypes: true });
+        // อ่านไฟล์ทั้งหมด (แบบแบนราบ ไม่ใช้โฟลเดอร์ซ้อนกันเพื่อความง่ายในการเรียก API)
+        const items = await fsPromises.readdir(userDir, { withFileTypes: true });
         const db = await readDB();
         
-        const result = await Promise.all(items.map(async (item) => {
-            const itemPath = path.join(safePath, item.name);
-            const stats = await fsPromises.stat(itemPath);
-            const relPath = path.posix.join(targetPath, item.name);
-            
-            // Check if file is shared publicly
-            const apiKeyEntry = Object.entries(db.keys).find(([_, data]) => data.path === relPath && data.owner === req.user.id);
+        const files = await Promise.all(items.filter(i => i.isFile() && i.name.endsWith('.json')).map(async (item) => {
+            const stats = await fsPromises.stat(path.join(userDir, item.name));
+            // หา API Key ที่ผูกกับไฟล์นี้
+            const apikeys = Object.entries(db.apikeys)
+                .filter(([_, data]) => data.owner === req.user.id && data.file === item.name)
+                .map(([key, data]) => ({ key, permissions: data.permissions, name: data.name }));
 
             return {
                 name: item.name,
-                path: relPath,
-                isDirectory: item.isDirectory(),
                 size: stats.size,
                 modified: stats.mtime,
-                isPublic: !!apiKeyEntry,
-                apiKey: apiKeyEntry ? apiKeyEntry[0] : null
+                keys: apikeys
             };
         }));
-
-        // Sort: folders first, then files alphabetically
-        result.sort((a, b) => {
-            if (a.isDirectory === b.isDirectory) return a.name.localeCompare(b.name);
-            return a.isDirectory ? -1 : 1;
-        });
-
-        res.json(result);
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
-});
-
-app.post('/api/folder', authenticateToken, async (req, res) => {
-    try {
-        const { path: folderPath } = req.body;
-        const safePath = getSafePath(req.user.id, folderPath);
-        await fsPromises.mkdir(safePath, { recursive: true });
-        res.json({ message: 'Folder created successfully' });
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
-});
-
-app.post('/api/file', authenticateToken, upload.array('files'), async (req, res) => {
-    try {
-        const targetPath = req.body.path || '/';
         
-        for (const file of req.files) {
-            const safePath = getSafePath(req.user.id, path.posix.join(targetPath, file.originalname));
-            await fsPromises.rename(file.path, safePath);
-        }
-        res.json({ message: 'Files uploaded successfully' });
-    } catch (err) {
-        // Cleanup temp files on error
-        if (req.files) {
-            for (const file of req.files) {
-                if (fs.existsSync(file.path)) await fsPromises.unlink(file.path);
-            }
-        }
-        res.status(400).json({ error: err.message });
-    }
+        res.json(files);
+    } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
-app.put('/api/file', authenticateToken, async (req, res) => {
+// สร้าง/แก้ไขไฟล์ JSON (ผ่าน Dashboard)
+app.post('/dashboard/file', authenticateUI, async (req, res) => {
     try {
-        const { path: filePath, content } = req.body;
-        const safePath = getSafePath(req.user.id, filePath);
+        const { filename, content } = req.body;
+        if (!filename.endsWith('.json')) return res.status(400).json({ error: 'Filename must end with .json' });
+        
+        const safePath = getSafePath(req.user.id, filename);
+        
+        // ตรวจสอบว่าเป็น JSON ที่ถูกต้องไหม
+        try {
+            JSON.parse(content);
+        } catch (e) {
+            return res.status(400).json({ error: 'Invalid JSON format' });
+        }
+
         await fsPromises.writeFile(safePath, content, 'utf8');
         res.json({ message: 'File saved successfully' });
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
+    } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
-app.post('/api/delete', authenticateToken, async (req, res) => {
+// อ่านไฟล์ JSON (ผ่าน Dashboard)
+app.get('/dashboard/file/:name', authenticateUI, async (req, res) => {
     try {
-        const { paths } = req.body; // Array of paths
-        for (const p of paths) {
-            const safePath = getSafePath(req.user.id, p);
-            if (fs.existsSync(safePath)) {
-                await fsPromises.rm(safePath, { recursive: true, force: true });
-            }
-            
-            // Clean up API keys if deleting a public file
-            const db = await readDB();
-            let keysChanged = false;
-            for (const [key, data] of Object.entries(db.keys)) {
-                if (data.owner === req.user.id && (data.path === p || data.path.startsWith(p + '/'))) {
-                    delete db.keys[key];
-                    keysChanged = true;
-                }
-            }
-            if (keysChanged) await writeDB(db);
+        const safePath = getSafePath(req.user.id, req.params.name);
+        if (!fs.existsSync(safePath)) return res.status(404).json({ error: 'File not found' });
+        
+        const content = await fsPromises.readFile(safePath, 'utf8');
+        res.json({ content: JSON.parse(content) }); // ส่งกลับเป็น Object
+    } catch (err) { res.status(400).json({ error: err.message }); }
+});
+
+// ลบไฟล์ JSON
+app.delete('/dashboard/file/:name', authenticateUI, async (req, res) => {
+    try {
+        const filename = req.params.name;
+        const safePath = getSafePath(req.user.id, filename);
+        
+        if (fs.existsSync(safePath)) {
+            await fsPromises.unlink(safePath);
         }
-        res.json({ message: 'Items deleted successfully' });
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
-});
 
-app.post('/api/move', authenticateToken, async (req, res) => {
-    try {
-        const { items, destination } = req.body; // items: array of paths, destination: folder path
-        for (const p of items) {
-            const sourcePath = getSafePath(req.user.id, p);
-            const fileName = path.basename(p);
-            const destPath = getSafePath(req.user.id, path.posix.join(destination, fileName));
-            await fsPromises.rename(sourcePath, destPath);
+        // ลบ API Keys ที่ผูกกับไฟล์นี้
+        const db = await readDB();
+        let changed = false;
+        for (const [key, data] of Object.entries(db.apikeys)) {
+            if (data.owner === req.user.id && data.file === filename) {
+                delete db.apikeys[key];
+                changed = true;
+            }
         }
-        res.json({ message: 'Items moved successfully' });
-    } catch (err) {
-        res.status(400).json({ error: err.message });
-    }
+        if (changed) await writeDB(db);
+
+        res.json({ message: 'File deleted' });
+    } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
-// --- API KEYS & PUBLIC SHARING ---
-
-app.post('/api/key', authenticateToken, async (req, res) => {
+// สร้าง API Key ใหม่สำหรับไฟล์
+app.post('/dashboard/apikey', authenticateUI, async (req, res) => {
     try {
-        const { path: targetPath, isPublic } = req.body;
+        const { filename, keyName, permissions } = req.body; // permissions: ['read', 'write']
+        
+        const safePath = getSafePath(req.user.id, filename);
+        if (!fs.existsSync(safePath)) return res.status(404).json({ error: 'Target file does not exist' });
+
+        const apiKey = `nx_${crypto.randomBytes(16).toString('hex')}`;
         const db = await readDB();
         
-        // Remove existing key for this path
-        for (const [key, data] of Object.entries(db.keys)) {
-            if (data.owner === req.user.id && data.path === targetPath) {
-                delete db.keys[key];
-            }
-        }
-
-        let newKey = null;
-        if (isPublic) {
-            newKey = crypto.randomBytes(16).toString('hex');
-            db.keys[newKey] = {
-                owner: req.user.id,
-                path: targetPath,
-                createdAt: new Date().toISOString()
-            };
-        }
+        db.apikeys[apiKey] = {
+            owner: req.user.id,
+            file: filename,
+            name: keyName || 'Unnamed Key',
+            permissions: permissions || ['read'],
+            createdAt: new Date().toISOString()
+        };
 
         await writeDB(db);
-        res.json({ message: isPublic ? 'File shared' : 'File made private', key: newKey });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        res.json({ message: 'API Key generated', key: apiKey });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/public/:key', async (req, res) => {
+// ลบ API Key
+app.delete('/dashboard/apikey/:key', authenticateUI, async (req, res) => {
     try {
-        const { key } = req.params;
         const db = await readDB();
-        const fileRecord = db.keys[key];
+        const key = req.params.key;
         
-        if (!fileRecord) return res.status(404).json({ error: 'File not found or private' });
-
-        const safePath = getSafePath(fileRecord.owner, fileRecord.path);
-        
-        if (!fs.existsSync(safePath)) {
-            return res.status(404).json({ error: 'File no longer exists' });
+        if (db.apikeys[key] && db.apikeys[key].owner === req.user.id) {
+            delete db.apikeys[key];
+            await writeDB(db);
+            return res.json({ message: 'API Key deleted' });
         }
-
-        const stat = await fsPromises.stat(safePath);
-        if (stat.isDirectory()) {
-            return res.status(400).json({ error: 'Cannot directly download directories' });
-        }
-
-        const mimeType = mime.lookup(safePath) || 'application/octet-stream';
-        res.setHeader('Content-Type', mimeType);
-        
-        // Handle download vs inline viewing
-        if (req.query.download) {
-            res.download(safePath, path.basename(safePath));
-        } else {
-            res.sendFile(safePath);
-        }
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        res.status(404).json({ error: 'Key not found' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- DASHBOARD STATS ---
 
-// Helper to get folder size
-async function getDirectorySize(dirPath) {
-    let size = 0;
-    const items = await fsPromises.readdir(dirPath, { withFileTypes: true });
-    for (const item of items) {
-        const itemPath = path.join(dirPath, item.name);
-        if (item.isDirectory()) {
-            size += await getDirectorySize(itemPath);
-        } else {
-            const stats = await fsPromises.stat(itemPath);
-            size += stats.size;
-        }
-    }
-    return size;
+// --- PUBLIC DATA API (สำหรับให้ Bot / App เรียกใช้งาน) ---
+
+// Middleware ตรวจสอบ API Key สำหรับ Service
+async function authenticateAPIKey(req, res, next) {
+    const apiKey = req.headers['x-api-key'] || req.query.apikey;
+    if (!apiKey) return res.status(401).json({ error: 'API Key required (Header: x-api-key)' });
+
+    const db = await readDB();
+    const keyData = db.apikeys[apiKey];
+    
+    if (!keyData) return res.status(403).json({ error: 'Invalid API Key' });
+    
+    req.keyData = keyData; // { owner, file, permissions }
+    next();
 }
 
-// Helper to get total file count recursively
-async function getFileCount(dirPath) {
-    let count = 0;
-    const items = await fsPromises.readdir(dirPath, { withFileTypes: true });
-    for (const item of items) {
-        const itemPath = path.join(dirPath, item.name);
-        if (item.isDirectory()) {
-            count += await getFileCount(itemPath);
-        } else {
-            count += 1;
-        }
-    }
-    return count;
-}
-
-
-app.get('/api/stats', authenticateToken, async (req, res) => {
+// [GET] อ่านค่า Config ทั้งก้อน
+app.get('/api/data', authenticateAPIKey, async (req, res) => {
     try {
-        const userStoragePath = path.resolve(STORAGE_DIR, req.user.id);
-        const totalSize = await getDirectorySize(userStoragePath);
-        const totalFiles = await getFileCount(userStoragePath);
+        if (!req.keyData.permissions.includes('read')) return res.status(403).json({ error: 'Read permission denied' });
         
-        const db = await readDB();
-        const publicFiles = Object.values(db.keys).filter(k => k.owner === req.user.id).length;
+        const safePath = getSafePath(req.keyData.owner, req.keyData.file);
+        if (!fs.existsSync(safePath)) return res.status(404).json({ error: 'Data file not found' });
 
-        res.json({
-            totalStorageSize: totalSize,
-            totalFiles: totalFiles,
-            publicFilesCount: publicFiles
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        const data = JSON.parse(await fsPromises.readFile(safePath, 'utf8'));
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Fallback to index.html for SPA routing
+// [PUT] เขียนทับ Config ทั้งก้อน (Replace all)
+app.put('/api/data', authenticateAPIKey, async (req, res) => {
+    try {
+        if (!req.keyData.permissions.includes('write')) return res.status(403).json({ error: 'Write permission denied' });
+        
+        const newData = req.body;
+        if (typeof newData !== 'object' || Array.isArray(newData) || newData === null) {
+            return res.status(400).json({ error: 'Body must be a JSON object' });
+        }
+
+        const safePath = getSafePath(req.keyData.owner, req.keyData.file);
+        await fsPromises.writeFile(safePath, JSON.stringify(newData, null, 2), 'utf8');
+        
+        res.json({ success: true, message: 'Data fully updated' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// [PATCH] อัปเดตเฉพาะบางฟิลด์ (Merge data)
+app.patch('/api/data', authenticateAPIKey, async (req, res) => {
+    try {
+        if (!req.keyData.permissions.includes('write')) return res.status(403).json({ error: 'Write permission denied' });
+        
+        const patchData = req.body;
+        if (typeof patchData !== 'object' || Array.isArray(patchData) || patchData === null) {
+            return res.status(400).json({ error: 'Body must be a JSON object' });
+        }
+
+        const safePath = getSafePath(req.keyData.owner, req.keyData.file);
+        let currentData = {};
+        
+        if (fs.existsSync(safePath)) {
+            currentData = JSON.parse(await fsPromises.readFile(safePath, 'utf8'));
+        }
+
+        // รวมข้อมูลเก่าและใหม่เข้าด้วยกัน (Shallow merge)
+        const updatedData = { ...currentData, ...patchData };
+        
+        await fsPromises.writeFile(safePath, JSON.stringify(updatedData, null, 2), 'utf8');
+        
+        res.json({ success: true, message: 'Data partially updated', data: updatedData });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
+// Fallback
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Initialize and Start
+// Start
 initDB().then(() => {
     app.listen(PORT, () => {
-        console.log(`Cloud Storage SaaS running on http://localhost:${PORT}`);
+        console.log(`Nexus Config API running on port ${PORT}`);
     });
 }).catch(console.error);
